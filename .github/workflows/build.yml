@@ -11,10 +11,10 @@ jobs:
     
     steps:
     - name: 检出代码
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: 安装Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -37,7 +37,8 @@ jobs:
         pyinstaller --onefile --windowed --name="FBA仓库代码提取器" --add-data "temp_build\tesseract.exe;." --add-data "temp_build\tessdata;tessdata" --hidden-import=pytesseract --hidden-import=PIL --hidden-import=fitz --hidden-import=pandas --hidden-import=openpyxl fba_extractor.py
     
     - name: 上传打包文件
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: FBA仓库代码提取器
         path: dist/FBA仓库代码提取器.exe
+        compression-level: 0
