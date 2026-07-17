@@ -21,6 +21,11 @@ jobs:
     - name: 安装Tesseract
       run: |
         choco install tesseract -y
+        # 等待安装完成
+        Start-Sleep -Seconds 10
+        # 查找Tesseract安装位置
+        dir "C:\Program Files\Tesseract-OCR\" -ErrorAction SilentlyContinue
+        dir "C:\Program Files (x86)\Tesseract-OCR\" -ErrorAction SilentlyContinue
     
     - name: 安装依赖包
       run: |
@@ -30,10 +35,55 @@ jobs:
     - name: 打包程序
       run: |
         mkdir temp_build
-        copy "C:\Program Files\Tesseract-OCR\tesseract.exe" temp_build\
-        mkdir temp_build\tessdata
-        copy "C:\Program Files\Tesseract-OCR\tessdata\chi_sim.traineddata" temp_build\tessdata\
-        copy "C:\Program Files\Tesseract-OCR\tessdata\eng.traineddata" temp_build\tessdata\
+        
+        # 查找Tesseract路径
+        $tessPath = "C:\Program Files\Tesseract-OCR"
+        if (-not (Test-Path $tessPath)) {
+            $tessPath = "C:\Program Files (x86)\Tesseract-OCR"
+        }
+        
+        # 复制tesseract.exe
+        if (Test-Path "$tessPath\tesseract.exe") {
+            Copy-Item "$tessPath\tesseract.exe" temp_build\ -Force
+            Write-Host "✓ 复制 tesseract.exe 成功"
+        } else {
+            Write-Host "⚠ 未找到 tesseract.exe"
+        }
+        
+        # 复制语言包
+        New-Item -ItemType Directory -Path temp_build\tessdata -Force
+        $langFiles = @("chi_sim.traineddata", "eng.traineddata", "jpn.traineddata")
+        foreach ($lang in $langFiles) {
+            $source = "$tessPath\tessdata\$lang"
+            if (Test-Path $source) {
+                Copy-Item $source temp_build\tessdata\ -Force
+                Write-Host "✓ 复制 $lang 成功"
+            } else {
+                Write-Host "⚠ 未找到 $lang"
+            }
+        }
+        
+        # 如果语言包不存在，尝试从备用位置复制
+        if (-not (Test-Path "temp_build\tessdata\chi_sim.traineddata")) {
+            Write-Host "尝试从备用位置查找语言包..."
+            $altPaths = @(
+                "C:\ProgramData\Tesseract-OCR\tessdata",
+                "C:\Users\runneradmin\AppData\Local\Tesseract-OCR\tessdata"
+            )
+            foreach ($altPath in $altPaths) {
+                if (Test-Path "$altPath\chi_sim.traineddata") {
+                    Copy-Item "$altPath\*.traineddata" temp_build\tessdata\ -Force
+                    Write-Host "✓ 从备用位置复制成功: $altPath"
+                    break
+                }
+            }
+        }
+        
+        # 显示目录结构（调试用）
+        Write-Host "temp_build 目录内容:"
+        dir temp_build
+        
+        # 打包
         pyinstaller --onefile --windowed --name="FBA仓库代码提取器" --add-data "temp_build\tesseract.exe;." --add-data "temp_build\tessdata;tessdata" --hidden-import=pytesseract --hidden-import=PIL --hidden-import=fitz --hidden-import=pandas --hidden-import=openpyxl fba_extractor.py
     
     - name: 上传打包文件
